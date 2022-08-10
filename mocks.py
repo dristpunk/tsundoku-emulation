@@ -18,6 +18,10 @@ class ERC20:
         self.balances.setdefault(_of, 0)
         return self.balances[_of]
 
+    def __lt__(self, other):
+         return self.name < other.name
+
+
 
 class Treasury:
     def __init__(self):
@@ -40,6 +44,18 @@ class Router:
 
         return -1
 
+    def getPools(self):
+        res_list = []
+        for pool in self.pools:
+            view_pool = {
+            'amounts': {tok.name:val for tok, val in pool['amounts'].items()},
+            'weights': {tok.name:val for tok, val in pool['weights'].items()},
+            'users': {user.name:{'amounts': {t.name:v for t,v in val['amounts'].items()}} for user, val in pool['users'].items()}
+            }
+
+            res_list.append(view_pool)
+
+        return res_list
 
     def createPool(self, user, tokens, weights, amounts):
         pid = self._getPoolId(tokens, weights)

@@ -8,7 +8,7 @@ class User:
         self.farms = farms
         self.assets = {}
     
-    def mintAssets(self, assets, amounts):
+    def mintTokens(self, assets, amounts):
         if isinstance(assets, list) and isinstance(amounts, list):
             assert(len(assets) == len(amounts))
             for asset, amount in zip(assets, amounts):

@@ -1,3 +1,6 @@
+from copy import copy, deepcopy
+
+
 def arrayIsSorted(arr):
         return (arr == sorted(arr)) and (len(set(arr)) == len(arr))
 
@@ -16,6 +19,22 @@ class Farms:
         self.doku = doku
         self.treasury = treasury
         self.router = router
+
+    def getTokenInfo(self):
+        res_dict = {}
+        for token in self.tokenInfo:
+            res_dict[token.name] = deepcopy(self.tokenInfo[token])
+
+        return res_dict
+    
+    def getUserInfo(self):
+        res_dict = {}
+        for pool in self.userInfo:
+            res_dict[pool] = {}
+            for user in pool:
+                res_dict[pool][user.name] = deepcopy(self.userInfo[pool][user])
+
+        return res_dict
 
 
     def safeDokuTransfer(self, to, amount):
@@ -56,7 +75,7 @@ class Farms:
             
             token['amount'] += amount_
 
-            token.transfer(sender, self.router, amount_)
+            token_.transfer(sender, self.router, amount_)
 
     def updateToken(self, _token):
         token = self.tokenInfo[_token]
@@ -150,7 +169,7 @@ class Farms:
             user['amounts'][token_] -= amount_
             token['amount'] -= amount_
 
-            token_.transfer(self, sender, amount_)
+            token_.transfer(self.router, sender, amount_)
 
         eligibleBeets = (accumulatedBeets // self.ACCOUNT_PRECISION) - user['rewardDebt']
 
