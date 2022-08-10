@@ -1,8 +1,5 @@
-from .mocks import DokuToken, Treasury, Router
-
-
 def arrayIsSorted(arr):
-        return all(arr == sorted(arr)) and (len(set(arr)) == len(arr))
+        return (arr == sorted(arr)) and (len(set(arr)) == len(arr))
 
 
 class Farms:
@@ -31,8 +28,8 @@ class Farms:
                                         "accDokuPerShare": 0,
                                         "amount": 0})
 
-        self.tokenInfo[token]['allocPoint'] = allocPoint
         self.totalAllocPoint = self.totalAllocPoint - self.tokenInfo[token]['allocPoint'] + allocPoint
+        self.tokenInfo[token]['allocPoint'] = allocPoint
 
     
     def createPool(self, sender, tokens, weights, amounts):
@@ -41,6 +38,8 @@ class Farms:
 
         pid = self.router.createPool(sender, tokens, weights, amounts)
         assert(pid not in self.userInfo)
+
+        self.userInfo.setdefault(pid, {})
 
         self.userInfo[pid][sender] = {'amounts': {}, 'rewardDebt': 0}
         
@@ -57,7 +56,7 @@ class Farms:
             
             token['amount'] += amount_
 
-            # token_.safeTransferFrom(msg.sender, address(router), amount_);
+            token.transfer(sender, self.router, amount_)
 
     def updateToken(self, _token):
         token = self.tokenInfo[_token]
@@ -65,7 +64,7 @@ class Farms:
         if self.block > token['lastRewardBlock']:
             if token['amount'] > 0:
                 blocksSinceLastReward = self.block - token['lastRewardBlock']
-                dokuRewards = (blocksSinceLastReward * self.dokuPerBlock * token['allocPoint']) / self.totalAllocPoint
+                dokuRewards = (blocksSinceLastReward * self.dokuPerBlock * token['allocPoint']) // self.totalAllocPoint
                 self.doku.mint('farms', dokuRewards)
                 treasuryRewards = (dokuRewards * self.treasuryPercent) // 1000
                 self.doku.mint(self.treasury, treasuryRewards)
@@ -100,7 +99,7 @@ class Farms:
             
             token['amount'] += amount_
 
-        self.router.addLiquidity(pid, tokens, amounts)
+        self.router.addLiquidity(sender, pid, tokens, amounts)
 
 
     def harvest(self, sender, pid):
@@ -134,7 +133,7 @@ class Farms:
         accumulatedBeets = 0
         rewardDebtDecay = 0
 
-        self.router.removeLiquidity(pid, tokens, amounts)
+        self.router.removeLiquidity(sender, pid, tokens, amounts)
 
         for token_, amount_ in zip(tokens, amounts):
 
@@ -151,11 +150,11 @@ class Farms:
             user['amounts'][token_] -= amount_
             token['amount'] -= amount_
 
-            # token_.safeTransfer(_to, amount_);
+            token_.transfer(self, sender, amount_)
 
-        eligibleBeets = (accumulatedBeets / self.ACCOUNT_PRECISION) - user['rewardDebt']
+        eligibleBeets = (accumulatedBeets // self.ACCOUNT_PRECISION) - user['rewardDebt']
 
-        user['rewardDebt'] = accumulatedBeets - (rewardDebtDecay / self.ACCOUNT_PRECISION)
+        user['rewardDebt'] = accumulatedBeets - (rewardDebtDecay // self.ACCOUNT_PRECISION)
 
         self.safeDokuTransfer(sender, eligibleBeets)
         
