@@ -28,7 +28,16 @@ class Treasury:
         self.balance = dict()
 
     def _addTokens(self, tokens, amounts):
-        self.balance = dict(dict.items() + zip(tokens, amounts))
+        for token, amount in zip(tokens, amounts):
+            self.balance.setdefault(token, 0)
+            self.balance[token] += amount
+
+    def getBalance(self):
+        view_dict = {}
+        for token in self.balance:
+            view_dict[token.name] = self.balance[token]
+
+        return view_dict
 
 
 class Router:
@@ -87,6 +96,10 @@ class Router:
         for token, amount in zip(tokens, amounts):
             self.pools[pid]['amounts'][token] -= amount
             self.pools[pid]['users'][user]['amounts'][token] -= amount
+
+
+    def changeTokenPrice(self):
+        pass
 
     
         

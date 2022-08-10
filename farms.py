@@ -177,5 +177,6 @@ class Farms:
 
         self.safeDokuTransfer(sender, eligibleBeets)
         
-
+    def updateEmissionRate(self, newRate):
+        self.dokuPerBlock = newRate
 
