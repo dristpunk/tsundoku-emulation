@@ -14,6 +14,7 @@ class Farms:
         self.block = 0
         self.totalAllocPoint = 0
         self.ACCOUNT_PRECISION = 1e12
+        self.name = 'FARMS'
 
     def initialize(self, doku, treasury, router):
         self.doku = doku
@@ -118,6 +119,8 @@ class Farms:
             
             token['amount'] += amount_
 
+            token_.transfer(sender, self.router, amount_)
+
         self.router.addLiquidity(sender, pid, tokens, amounts)
 
 
@@ -169,7 +172,6 @@ class Farms:
             user['amounts'][token_] -= amount_
             token['amount'] -= amount_
 
-            token_.transfer(self.router, sender, amount_)
 
         eligibleBeets = (accumulatedBeets // self.ACCOUNT_PRECISION) - user['rewardDebt']
 
