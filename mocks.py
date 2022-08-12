@@ -98,10 +98,21 @@ class Router:
             self.pools[pid]['users'][user]['amounts'][token] -= amount
 
 
-    def changeTokenPrice(self):
-        pass
-
-    
+    def changeTokenPrice(self, token, n):
+        for pool in self.pools:
+            if token not in pool['amounts']:
+                continue
+            
+            new_amounts = []
+            a = pool['weights'][tok]
+            for tok in pool['amounts']:
+                val = pool['amounts'][tok]
+                if tok == token:
+                    new_val = val /  (n**(1 - a))
+                else:
+                    new_val = val * n /  (n**(1 - a))
+                    
+                new_amounts.append(new_val)
         
 
 
