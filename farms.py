@@ -39,7 +39,9 @@ class Farms:
 
 
     def safeDokuTransfer(self, to, amount):
-        self.doku.transfer('farms', to, min(amount, self.doku.balanceOf('farms')))
+        assert amount - self.doku.balanceOf(self) <= 1e18
+
+        self.doku.transfer(self, to, min(amount, self.doku.balanceOf(self)))
 
     
     def setToken(self, token, allocPoint):
@@ -55,6 +57,9 @@ class Farms:
     def createPool(self, sender, tokens, weights, amounts):
         assert len(tokens) == len(weights) == len(amounts)
         assert arrayIsSorted(tokens)
+
+        for token_, amount_ in zip(tokens, amounts):
+            token_.transfer(sender, self.router, amount_)
 
         pid = self.router.createPool(sender, tokens, weights, amounts)
         assert(pid not in self.userInfo)
@@ -76,8 +81,6 @@ class Farms:
             
             token['amount'] += amount_
 
-            token_.transfer(sender, self.router, amount_)
-
     def updateToken(self, _token):
         token = self.tokenInfo[_token]
 
@@ -85,7 +88,7 @@ class Farms:
             if token['amount'] > 0:
                 blocksSinceLastReward = self.block - token['lastRewardBlock']
                 dokuRewards = (blocksSinceLastReward * self.dokuPerBlock * token['allocPoint']) // self.totalAllocPoint
-                self.doku.mint('farms', dokuRewards)
+                self.doku.mint(self, dokuRewards)
                 treasuryRewards = (dokuRewards * self.treasuryPercent) // 1000
                 self.doku.mint(self.treasury, treasuryRewards)
                 token['accDokuPerShare'] += (dokuRewards * self.ACCOUNT_PRECISION) // token['amount']
@@ -147,38 +150,49 @@ class Farms:
             self.harvers(sender, pid)
     
 
-    def withdrawAndHarvest(self, sender, pid, tokens, amounts):
-        user = self.userInfo[pid][sender]
-        assert(len(tokens) == len(amounts))
-        assert(arrayIsSorted(tokens))
+    def withdrawAndHarvest(self, sender, pid, lps):
+        userLps = self.router.pools[pid]['users'][sender]
+        assert lps <= userLps
 
-        accumulatedBeets = 0
+        user = self.userInfo[pid][sender]
+
+        accumulatedDoku = 0
         rewardDebtDecay = 0
 
-        self.router.removeLiquidity(sender, pid, tokens, amounts)
+        self.router.removeLiquidity(sender, pid, lps)
 
-        for token_, amount_ in zip(tokens, amounts):
+        share = lps / userLps
 
-            assert(amount_ <= user['amounts'][token_])
+        for token_ in user['amounts'].keys():
+            
+            amount_ = user['amounts'][token_] * share
 
             self.updateToken(token_)
 
             token = self.tokenInfo[token_]
 
-            accumulatedBeets += user['amounts'][token_] * token['accDokuPerShare']
+            accumulatedDoku += (user['amounts'][token_] * token['accDokuPerShare'])  // self.ACCOUNT_PRECISION
 
-            rewardDebtDecay += amount_ * token['accDokuPerShare']
+            rewardDebtDecay += (amount_ * token['accDokuPerShare']) // self.ACCOUNT_PRECISION
 
             user['amounts'][token_] -= amount_
-            token['amount'] -= amount_
+            token['amount'] -= amount_ 
 
+        eligibleDoku = accumulatedDoku - user['rewardDebt']
 
-        eligibleBeets = (accumulatedBeets // self.ACCOUNT_PRECISION) - user['rewardDebt']
+        user['rewardDebt'] = accumulatedDoku - rewardDebtDecay
 
-        user['rewardDebt'] = accumulatedBeets - (rewardDebtDecay // self.ACCOUNT_PRECISION)
-
-        self.safeDokuTransfer(sender, eligibleBeets)
+        self.safeDokuTransfer(sender, eligibleDoku)
         
     def updateEmissionRate(self, newRate):
         self.dokuPerBlock = newRate
+
+    def getUsers(self):
+        user_info = {pool: {user.name: {'amounts': {tok.name:amt for tok, amt in uinf['amounts'].items()}, 'rewardDebt': uinf['rewardDebt']} for user, uinf in pinf.items()}  for pool, pinf in self.userInfo.items()}
+
+        return user_info
+
+    def getTokens(self):
+        token_info = {tok.name: deepcopy(inf) for tok, inf in self.tokenInfo.items()}
+        return token_info
 

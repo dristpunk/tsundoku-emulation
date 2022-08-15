@@ -3,9 +3,10 @@ from mocks import ERC20
 
 
 class User:
-    def __init__(self, name, farms):
+    def __init__(self, name, farms, router):
         self.name = name
         self.farms = farms
+        self.router = router
         self.assets = {}
     
     def mintTokens(self, assets, amounts):
@@ -13,11 +14,11 @@ class User:
             assert(len(assets) == len(amounts))
             for asset, amount in zip(assets, amounts):
                 asset.mint(self, amount)
-                self.assets[asset.name] = amount
+                self.assets[asset] = amount
 
         elif isinstance(asset, ERC20) and isinstance(amounts, int):
             asset.mint(self, amounts)
-            self.assets[asset.name] = amount
+            self.assets[asset] = amount
 
         else:
             assert(False)
@@ -26,12 +27,12 @@ class User:
     def createPool(self, tokens, weights, amounts):
         self.farms.createPool(self, tokens, weights, amounts)
         for token, amount in zip(tokens, amounts):
-            self.assets[token.name] -= amount
+            self.assets[token] -= amount
 
     def deposit(self, pid, tokens, amounts):
         self.farms.deposit(self, pid, tokens, amounts)
         for token, amount in zip(tokens, amounts):
-            self.assets[token.name] -= amount
+            self.assets[token] -= amount
 
     def harvest(self, pids):
         if isinstance(pids, list):
@@ -46,11 +47,12 @@ class User:
     def withdraw(self, pids):
         if isinstance(pids, list):
             for pid in pids:
-                tokens = list(self.farms.userInfo[pid][self]['amounts'].keys())
-                amounts = list(self.farms.userInfo[pid][self]['amounts'].values())
-                self.farms.withdrawAndHarvest(self, pid, tokens, amounts)
+                lps = self.router.pools[pid]['users'][self]
+                self.farms.withdrawAndHarvest(self, pid, lps)
 
         elif isinstance(pids, int):
-            tokens = list(self.farms.userInfo[pids][self]['amounts'].keys())
-            amounts = list(self.farms.userInfo[pids][self]['amounts'].values())
-            self.farms.withdrawAndHarvest(self, pids, tokens, amounts)
+            lps = self.router.pools[pids]['users'][self]
+            self.farms.withdrawAndHarvest(self, pids, lps)
+
+    def getAssets(self):
+        return {tok.name: amt for tok, amt in self.assets.items()}

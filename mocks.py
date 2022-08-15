@@ -4,6 +4,9 @@ class ERC20:
         self.name = name
     
     def transfer(self, _from, _to, _amount):
+        if abs(_amount - self.balances[_from]) < 0.00001:
+            _amount = self.balances[_from]
+
         assert self.balances[_from] >= _amount
 
         self.balances.setdefault(_to, 0)
@@ -15,8 +18,8 @@ class ERC20:
         self.balances[_to] += _amount
 
     def burn(self, _from, _amount):
-        assert self.balance[_from] >= _amount
-        self.balance[_from] -= _amount
+        assert self.balances[_from] >= _amount
+        self.balances[_from] -= _amount
 
     def balanceOf(self, _of):
         self.balances.setdefault(_of, 0)
@@ -74,26 +77,27 @@ class Router:
         return res_list
 
 
-    def rebaseAmounts(self, tokens, amounts, weights):
-        sumPrice = sum([self.prices[tok] * amt for tok, amt in zip(tokens, amounts)])
-        new_amounts = [w * sumPrice for w in weights.values()]
+    def rebaseAmounts(self, amountsDict, weightsDictAll):
+        sumPrice = sum([self.prices[tok] * amt for tok, amt in amountsDict.items()])
+        newAmounts = {t: w * sumPrice / self.prices[t] for t, w in weightsDictAll.items()}
 
-        for token, amt, newAmt in zip(tokens, amounts, new_amounts):
+        for token, amt in amountsDict.items():
             token.burn(self, amt)
+
+        for token, newAmt in newAmounts.items():
             token.mint(self, newAmt)
 
-        return new_amounts
+        return newAmounts
         
 
     def createPool(self, user, tokens, weights, amounts):
         pid = self._getPoolId(tokens, weights)
-        if pid != -1:
-            raise Exception("Pool already exists")
+        assert pid == -1
         
-        new_amounts = self.rebaseAmounts(tokens, amounts, weights) # instant arbitrage
+        newAmounts = self.rebaseAmounts(dict(zip(tokens, amounts)), dict(zip(tokens, weights))) # instant arbitrage
 
         pool = {
-            'amounts': dict(zip(tokens, new_amounts)),
+            'amounts': newAmounts,
             'weights': dict(zip(tokens, weights)),
             'users': {user: 1} # 1 LP for first dude
         }
@@ -105,11 +109,13 @@ class Router:
     def addLiquidity(self, user, pid, tokens, amounts):
         self.pools[pid]['users'].setdefault(user, 0)
 
-        new_amounts = self.rebaseAmounts(tokens, amounts, self.pools[pid]['weights']) # instant arbitrage
-        
-        self.pools[pid]['users'][user] += new_amounts[0] / self.pools[pid]['amounts'][tokens[0]] # LP
+        newAmounts = self.rebaseAmounts(dict(zip(tokens,amounts)), self.pools[pid]['weights']) # instant arbitrage
 
-        for token, amount in zip(tokens, new_amounts):
+        ftok, famt = list(newAmounts.items())[0] # take any token
+        
+        self.pools[pid]['users'][user] += famt / self.pools[pid]['amounts'][ftok] # LP
+
+        for token, amount in newAmounts.items():
             self.pools[pid]['amounts'][token] += amount
         
 
@@ -126,7 +132,7 @@ class Router:
 
             pool['amounts'][token] -= toReturn
 
-            token.transfer(self.router, user, toReturn)
+            token.transfer(self, user, toReturn)
 
         pool['users'][user] -= lps
 
@@ -141,11 +147,14 @@ class Router:
                 continue
             
             new_amounts = []
-            a = pool['weights'][tok]
+            a = pool['weights'][token]
             for tok in pool['amounts']:
                 val = pool['amounts'][tok]
                 new_val = val * n**(a - (tok == token)) # good formula uwu
                 new_amounts.append((tok, new_val))
+
+                tok.burn(self, val)
+                tok.mint(self, new_val)
 
             pool['amounts'] = dict(new_amounts)
 
