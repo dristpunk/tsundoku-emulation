@@ -16,9 +16,9 @@ class User:
                 asset.mint(self, amount)
                 self.assets[asset] = amount
 
-        elif isinstance(asset, ERC20) and isinstance(amounts, int):
-            asset.mint(self, amounts)
-            self.assets[asset] = amount
+        elif isinstance(assets, ERC20) and isinstance(amounts, int):
+            assets.mint(self, amounts)
+            self.assets[assets] = amounts
 
         else:
             assert(False)
@@ -48,11 +48,17 @@ class User:
         if isinstance(pids, list):
             for pid in pids:
                 lps = self.router.pools[pid]['users'][self]
-                self.farms.withdrawAndHarvest(self, pid, lps)
+                return_tokens, return_amounts = self.farms.withdrawAndHarvest(self, pid, lps)
+                for tok, amt in zip(return_tokens, return_amounts):
+                    self.assets.setdefault(tok, 0)
+                    self.assets[tok] += amt
 
         elif isinstance(pids, int):
             lps = self.router.pools[pids]['users'][self]
-            self.farms.withdrawAndHarvest(self, pids, lps)
+            return_tokens, return_amounts = self.farms.withdrawAndHarvest(self, pids, lps)
+            for tok, amt in zip(return_tokens, return_amounts):
+                    self.assets.setdefault(tok, 0)
+                    self.assets[tok] += amt
 
     def getAssets(self):
         return {tok.name: amt for tok, amt in self.assets.items()}

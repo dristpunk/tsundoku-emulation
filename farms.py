@@ -2,6 +2,8 @@ from copy import copy, deepcopy
 
 
 def arrayIsSorted(arr):
+        if not (arr == sorted(arr)) and (len(set(arr)) == len(arr)):
+            print([a.name for a in arr])
         return (arr == sorted(arr)) and (len(set(arr)) == len(arr))
 
 
@@ -159,7 +161,7 @@ class Farms:
         accumulatedDoku = 0
         rewardDebtDecay = 0
 
-        self.router.removeLiquidity(sender, pid, lps)
+        return_tokens, return_amounts = self.router.removeLiquidity(sender, pid, lps)
 
         share = lps / userLps
 
@@ -183,6 +185,8 @@ class Farms:
         user['rewardDebt'] = accumulatedDoku - rewardDebtDecay
 
         self.safeDokuTransfer(sender, eligibleDoku)
+
+        return return_tokens, return_amounts
         
     def updateEmissionRate(self, newRate):
         self.dokuPerBlock = newRate

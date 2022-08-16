@@ -127,6 +127,8 @@ class Router:
 
         lpall = sum(pool['users'].values())
 
+        return_amounts = []
+
         for token, amount in pool['amounts'].items():
             toReturn = lps / lpall * amount
 
@@ -134,7 +136,11 @@ class Router:
 
             token.transfer(self, user, toReturn)
 
+            return_amounts.append(toReturn)
+
         pool['users'][user] -= lps
+
+        return list(pool['amounts'].keys()), return_amounts
 
 
     def changeTokenPrice(self, token, new_price):

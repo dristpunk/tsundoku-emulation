@@ -72,6 +72,31 @@ class Emulation:
         }
         return logs
 
+    def reload(self, tokens_names, users_names, price_list, point_list):
+        self.farms = Farms(10e18, 100) # 10 doku per block and 10% treasury percent
+        self.treasury = Treasury()
+        self.doku = ERC20('doku')
+
+        self.tokens = [ERC20(name) for name in tokens_names]
+
+        prices = {token: price for token, price in zip(self.tokens, price_list)}
+
+        self.router = Router(self.farms, prices)
+
+        self.users = [User(name, self.farms, self.router) for name in users_names]
+
+        self.farms.initialize(self.doku, self.treasury, self.router)
+
+        self.host = User('HOST', self.farms, self.router)
+
+        for token, point in zip(self.tokens, point_list):
+            self.farms.setToken(token, point)
+
+        # mint tokens to users outside
+
+        self.start_time = time()
+        self.time_stopped = self.start_time
+
     
 
     
